@@ -1,0 +1,182 @@
+-- 0) ENUM 타입 정의
+CREATE TYPE app_state          AS ENUM ('closed_test','published');
+CREATE TYPE platform_type      AS ENUM ('android','ios','both');
+CREATE TYPE participation_status AS ENUM ('assigned','pending','completed','failed');
+CREATE TYPE request_status     AS ENUM ('open','closed','invalid','cancelled');
+
+-- 1) users 테이블
+CREATE TABLE users (
+  id           UUID        PRIMARY KEY DEFAULT auth.uid(),
+  email        TEXT        NOT NULL UNIQUE,
+  display_name TEXT        NOT NULL,
+  trust_score  INT         NOT NULL DEFAULT 0,
+  platform     platform_type NOT NULL DEFAULT 'android',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 2) user_apps 테이블 (사용자가 등록하는 앱)
+CREATE TABLE user_apps (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id      UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  package_name  TEXT        NOT NULL,           -- ex) com.example.myapp
+  app_state     app_state   NOT NULL,           -- 'closed_test' 또는 'published'
+  cafe_url      TEXT,                            -- 네이버 카페 요청 주소
+  pumasi_req    BOOLEAN     NOT NULL DEFAULT FALSE,  -- 품앗이 요청 여부
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 3) requests 테이블 (품앗이 요청)
+CREATE TABLE requests (
+  id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  target_app_id        UUID        NOT NULL REFERENCES user_apps(id) ON DELETE CASCADE,
+  description          TEXT,
+  owner_id             UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status               request_status NOT NULL DEFAULT 'open',
+  current_participants INT         NOT NULL DEFAULT 0,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 4) participations 테이블 (참여 신청/진행)
+CREATE TABLE participations (
+  id                 UUID                PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id         UUID                NOT NULL REFERENCES requests(id) ON DELETE CASCADE,
+  user_id            UUID                NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  requester_app_id   UUID                NOT NULL REFERENCES user_apps(id) ON DELETE CASCADE,
+  status             participation_status NOT NULL DEFAULT 'assigned',
+  proof_url          TEXT,                           -- 리뷰 품앗이 시 업로드된 스크린샷 URL
+  requested_at       TIMESTAMPTZ         NOT NULL DEFAULT now(),
+  completed_at       TIMESTAMPTZ
+);
+
+-- 5) notifications 테이블 (in-app 알림)
+CREATE TABLE notifications (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type        TEXT        NOT NULL,
+  message     TEXT        NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 6) reports 테이블 (불량 리뷰 신고 및 재제 관리)
+CREATE TABLE reports (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  participation_id UUID        NOT NULL REFERENCES participations(id) ON DELETE CASCADE,
+  reporter_id      UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reason           TEXT        NOT NULL,        -- 신고 사유
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved         BOOLEAN     NOT NULL DEFAULT FALSE,
+  resolved_at      TIMESTAMPTZ
+);
+
+-- 7) RLS 활성화
+ALTER TABLE users        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_apps    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE requests     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE participations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reports      ENABLE ROW LEVEL SECURITY;
+
+-- 8) RLS 정책
+
+-- users: 본인 정보만 조회/수정
+CREATE POLICY users_select_own ON users
+  FOR SELECT USING ( auth.uid() = id );
+CREATE POLICY users_update_own ON users
+  FOR UPDATE USING ( auth.uid() = id );
+
+-- user_apps: 본인 앱만 조회/삽입/수정/삭제
+CREATE POLICY apps_select_per_user ON user_apps
+  FOR SELECT USING ( owner_id = auth.uid() );
+CREATE POLICY apps_insert_per_user ON user_apps
+  FOR INSERT WITH CHECK ( owner_id = auth.uid() );
+CREATE POLICY apps_update_per_user ON user_apps
+  FOR UPDATE USING ( owner_id = auth.uid() );
+CREATE POLICY apps_delete_per_user ON user_apps
+  FOR DELETE USING ( owner_id = auth.uid() );
+
+-- requests: 누구나 조회, 본인만 삽입, 소유자만 수정/삭제
+CREATE POLICY requests_select ON requests
+  FOR SELECT USING ( true );
+CREATE POLICY requests_insert ON requests
+  FOR INSERT WITH CHECK ( owner_id = auth.uid() );
+CREATE POLICY requests_update_own ON requests
+  FOR UPDATE
+  USING ( owner_id = auth.uid() );
+
+CREATE POLICY requests_delete_own ON requests
+  FOR DELETE
+  USING ( owner_id = auth.uid() );
+
+-- participations: 참여자/요청자만 조회, 참여자만 삽입·proof_url 추가
+CREATE POLICY parts_select ON participations
+  FOR SELECT USING (
+    user_id = auth.uid()
+    OR request_id IN (
+      SELECT id FROM requests WHERE owner_id = auth.uid()
+    )
+  );
+CREATE POLICY parts_insert_with_app ON participations
+  FOR INSERT WITH CHECK (
+    auth.uid() = user_id
+    AND requester_app_id IN (
+      SELECT id FROM user_apps WHERE owner_id = auth.uid()
+    )
+  );
+CREATE POLICY parts_update_own ON participations
+  FOR UPDATE USING (
+    user_id = auth.uid()
+    AND proof_url IS NOT NULL
+  );
+
+-- notifications: 본인 알림만 조회
+CREATE POLICY noti_select ON notifications
+  FOR SELECT USING ( user_id = auth.uid() );
+
+CREATE POLICY reports_insert ON reports
+  FOR INSERT WITH CHECK ( reporter_id = auth.uid() );
+CREATE POLICY reports_select ON reports
+  FOR SELECT USING ( reporter_id = auth.uid() /* OR is_admin() */ );
+CREATE POLICY reports_update ON reports
+  FOR UPDATE USING ( /* 관리자 권한을 확인하는 조건 */ FALSE );
+
+-- 9) 트리거 및 함수
+
+-- 9.1 참여자 수 자동 증가
+CREATE FUNCTION inc_request_count() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  UPDATE requests
+    SET current_participants = current_participants + 1
+    WHERE id = NEW.request_id;
+  RETURN NEW;
+END; $$;
+
+CREATE TRIGGER trg_inc_count
+  AFTER INSERT ON participations
+  FOR EACH ROW EXECUTE FUNCTION inc_request_count();
+
+-- 9.2 참여 완료/실패 시 신뢰도 조정 및 알림
+CREATE FUNCTION adjust_trust_and_notify() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  owner UUID;
+BEGIN
+  SELECT owner_id INTO owner FROM requests WHERE id = NEW.request_id;
+
+  -- 완료(completed)로 변경될 때
+  IF (OLD.status <> 'completed' AND NEW.status = 'completed') THEN
+    UPDATE users SET trust_score = trust_score + 1 WHERE id = NEW.user_id;
+    UPDATE users SET trust_score = trust_score + 1 WHERE id = owner;
+    INSERT INTO notifications(user_id, type, message)
+      VALUES (owner, 'participation_completed', '참여자가 완료했습니다.');
+  END IF;
+
+  -- 실패(failed)로 변경될 때
+  IF (OLD.status <> 'failed' AND NEW.status = 'failed') THEN
+    UPDATE users SET trust_score = trust_score - 1 WHERE id = NEW.user_id;
+  END IF;
+
+  RETURN NEW;
+END; $$;
+
+CREATE TRIGGER trg_adjust_trust
+  AFTER UPDATE ON participations
+  FOR EACH ROW EXECUTE FUNCTION adjust_trust_and_notify();
