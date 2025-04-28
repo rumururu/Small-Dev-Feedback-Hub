@@ -9,7 +9,7 @@ import 'profile_page.dart';
 
 /// 홈 페이지: 하단 탭 네비게이션으로 세 화면 전환
 class HomePage extends StatelessWidget {
-  const HomePage({Key? key}) : super(key: key);
+  const HomePage({super.key});
   @override
   Widget build(BuildContext context) {
     final mainC = Get.find<MainController>();

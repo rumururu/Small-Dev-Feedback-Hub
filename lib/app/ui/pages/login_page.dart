@@ -2,11 +2,10 @@ import 'package:androidtestnreviewexchange/app/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/auth_controller.dart';
-import '../../utils/constants.dart';
 
 /// 로그인 페이지: Google OAuth로 로그인 처리
 class LoginPage extends StatelessWidget {
-  const LoginPage({Key? key}) : super(key: key);
+  const LoginPage({super.key});
   @override
   Widget build(BuildContext context) {
     final authC = Get.find<AuthController>();

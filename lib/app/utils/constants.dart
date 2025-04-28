@@ -1,6 +1,8 @@
 // lib/app/utils/constants.dart
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 /// Supabase 설정
-const String SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
-const String SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
+String get supabaseUrl     => dotenv.env['SUPABASE_URL']!;
+String get supabaseAnonKey => dotenv.env['SUPABASE_ANON_KEY']!;
 

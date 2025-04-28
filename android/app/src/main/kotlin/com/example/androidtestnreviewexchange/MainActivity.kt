@@ -1,4 +1,4 @@
-package com.example.androidtestnreviewexchange
+package com.mkideabox.androidtestnreviewexchange
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -1,40 +1,42 @@
-/// Supabase 'requests' 테이블 모델
 class RequestModel {
   final String id;
-  final String appName;
-  final String type;        // 'test' 또는 'review'
+  final String targetAppId;
   final String description;
   final String ownerId;
+  final String displayName;
+  final String status;
+  final String requestType;
   final int currentParticipants;
   final DateTime createdAt;
+  final String appName;
+  final String packageName;
+  final String appState;
+  final String? cafeUrl;
+  final int trustScore;
 
   RequestModel({
     required this.id,
-    required this.appName,
-    required this.type,
+    required this.targetAppId,
     required this.description,
     required this.ownerId,
+    required this.displayName,
+    required this.status,
+    required this.requestType,
     required this.currentParticipants,
     required this.createdAt,
+    required this.appName,
+    required this.packageName,
+    required this.appState,
+    required this.cafeUrl,
+    required this.trustScore,
   });
 
-  /// Supabase에서 Map 형태로 받아 모델로 변환
-  factory RequestModel.fromMap(Map<String, dynamic> m) => RequestModel(
-    id: m['id'] as String,
-    appName: m['app_name'] as String,
-    type: m['type'] as String,
-    description: m['description'] as String? ?? '',
-    ownerId: m['owner_id'] as String,
-    currentParticipants: m['current_participants'] as int,
-    createdAt: DateTime.parse(m['created_at'] as String),
-  );
-
-  /// Supabase 삽입용 Map 변환
   Map<String, dynamic> toMap() => {
-    'app_name': appName,
-    'type': type,
+    'target_app_id': targetAppId,
     'description': description,
     'owner_id': ownerId,
+    'status': status,
+    'request_type': requestType,
     'current_participants': currentParticipants,
     'created_at': createdAt.toIso8601String(),
   };

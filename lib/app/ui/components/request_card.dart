@@ -8,9 +8,9 @@ class RequestCard extends StatelessWidget {
   final RequestModel request;
 
   const RequestCard({
-    Key? key,
+    super.key,
     required this.request,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +18,7 @@ class RequestCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
       child: ListTile(
         title: Text(request.appName),
-        subtitle: Text(request.description),
+        subtitle: Text(request.displayName),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

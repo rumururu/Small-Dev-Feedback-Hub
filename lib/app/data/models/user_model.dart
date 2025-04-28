@@ -1,4 +1,3 @@
-// lib/app/data/models/user_model.dart
 /// 사용자 정보 모델
 class UserModel {
   final String id;

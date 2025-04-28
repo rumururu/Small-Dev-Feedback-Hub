@@ -1,5 +1,6 @@
 import 'package:androidtestnreviewexchange/app/routes/app_routes.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/bindings/init_binding.dart';
@@ -8,9 +9,10 @@ import 'app/utils/constants.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: 'assets/.env');   // 이 줄을 추가
   await Supabase.initialize(
-    url: SUPABASE_URL,
-    anonKey: SUPABASE_ANON_KEY,
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
   );
   runApp(const MyApp());
 }
