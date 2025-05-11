@@ -1,5 +1,4 @@
-import '../controllers/review_controller.dart';
-import '../controllers/test_controller.dart';
+import '../controllers/request_controller.dart';
 import 'package:get/get.dart';
 import '../controllers/app_controller.dart';
 import '../controllers/auth_controller.dart';
@@ -13,8 +12,7 @@ class InitBinding extends Bindings {
     Get.lazyPut<AuthProvider>(() => AuthProvider(), fenix: true);
     // 인증 상태 관리 컨트롤러
     Get.lazyPut<AuthController>(() => AuthController(), fenix: true);
-    Get.lazyPut<TestController>(() => TestController(), fenix: true);
-    Get.lazyPut<ReviewController>(() => ReviewController(), fenix: true);
+    Get.lazyPut<RequestController>(() => RequestController(), fenix: true);
     Get.lazyPut<AppController>(() => AppController(), fenix: true);
     // 하단 탭 제어 컨트롤러
     Get.put<MainController>(MainController(), permanent: true);

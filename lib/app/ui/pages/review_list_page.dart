@@ -1,10 +1,11 @@
 // lib/app/ui/pages/review_list_page.dart
 
+import 'package:androidtestnreviewexchange/app/controllers/request_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/app_controller.dart';
-import '../../controllers/review_controller.dart';
 import '../../data/models/app_model.dart';
+import '../components/notification_badge_button.dart';
 import '../components/request_card.dart';
 
 /// 리뷰 품앗이 리스트 화면
@@ -13,7 +14,10 @@ class ReviewListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ctrl = Get.find<ReviewController>();
+    final ctrl = Get.find<RequestController>();
+    ctrl.setRequestType('review');
+    if (ctrl.reviewRequests.isEmpty) ctrl.loadRequests();
+    final scrollController = ScrollController();
     return Scaffold(
       appBar: AppBar(
         title: const Text('리뷰 품앗이'),
@@ -24,7 +28,7 @@ class ReviewListPage extends StatelessWidget {
               final appC = Get.find<AppController>();
               final publishedApps = appC.apps.where((a) => a.appState == 'published').toList();
               if (publishedApps.isEmpty) {
-                Get.snackbar('알림', '등록할 수 있는 앱이 없습니다.');
+                Get.snackbar('등록할 수 있는 앱 없음', '내 정보에서 published인 앱을 먼저 등록하세요.');
                 return;
               }
               final selected = await showDialog<AppModel>(
@@ -50,7 +54,7 @@ class ReviewListPage extends StatelessWidget {
                 },
               );
               if (selected != null) {
-                final existing = ctrl.requests.where((r) =>
+                final existing = ctrl.reviewRequests.where((r) =>
                 r.targetAppId == selected.id &&
                     r.requestType == (selected.appState == 'closed_test' ? 'test' : 'review')
                 ).toList();
@@ -87,21 +91,103 @@ class ReviewListPage extends StatelessWidget {
                 }
               }
             },
-          ),
+          ), NotificationBadgeButton(),
         ],
       ),
       body: Obx(() {
-        final list = ctrl.requests;
-        if (list.isEmpty) {
-          return const Center(child: Text('등록된 리뷰 요청이 없습니다.'));
-        }
+        final list = ctrl.reviewRequests;
         return RefreshIndicator(
           onRefresh: () async {
             await ctrl.loadRequests();
           },
-          child: ListView.builder(
-            itemCount: list.length,
-            itemBuilder: (_, i) => RequestCard(request: list[i]),
+          child: CustomScrollView(
+            controller: scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              // 기존 SliverToBoxAdapter 필터/정렬 영역 유지
+              SliverToBoxAdapter(
+                child: Obx(() => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Obx(() {
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Checkbox(
+                              value: ctrl.filterMyParticipation.value,
+                              onChanged: (v) {
+                                ctrl.filterMyParticipation.value = v ?? true;
+                                ctrl.loadRequests();
+                              },
+                            ),
+                            const Text('참여 완료 제외'),
+                          ],
+                        );
+                      }),
+                      const SizedBox(width: 24),
+                      DropdownButton<String>(
+                        value: ctrl.sortBy.value,
+                        items: const [
+                          DropdownMenuItem(value: 'date', child: Text('최신순')),
+                          DropdownMenuItem(value: 'trust', child: Text('신뢰순')),
+                        ],
+                        onChanged: (v) {
+                          ctrl.sortBy.value = v ?? 'trust';
+                          ctrl.loadRequests();
+                        },
+                      ),
+                    ],
+                  ),
+                )),
+              ),
+              if (ctrl.isLoading.value)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (list.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: const Center(
+                    child: Text('등록된 리뷰 요청이 없습니다.'),
+                  ),
+                )
+              else
+                ...[
+                  NotificationListener<ScrollNotification>(
+                    onNotification: (scrollInfo) {
+                      if (scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 100 &&
+                          !ctrl.isLoadingMore.value &&
+                          ctrl.hasMoreRequests.value) {
+                        ctrl.loadMoreRequests();
+                      }
+                      return false;
+                    },
+                    child: Obx(() => SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                            (_, i) => RequestCard(request: list[i]),
+                        childCount: list.length,
+                      ),
+                    )),
+                  ),
+                  if (ctrl.isLoadingMore.value)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    ),
+                  if (!ctrl.hasMoreRequests.value && list.isNotEmpty)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: Text('더 이상 요청이 없습니다.')),
+                      ),
+                    ),
+                ],
+            ],
           ),
         );
       }),

@@ -3,11 +3,13 @@
 // ignore_for_file: unused_local_variable
 
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // Added for env variables
+import '../middleware/push_service.dart';
 
 class AuthController extends GetxController {
   late final StreamSubscription<AuthState> _authSubscription;
@@ -19,14 +21,18 @@ class AuthController extends GetxController {
     super.onInit();
     user.value = supabase.auth.currentSession?.user;
 
-    _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
+    _authSubscription = supabase.auth.onAuthStateChange.listen((data) async {
       final session = data.session;
       final event = data.event;
       user.value = session?.user;
 
-      // Remove navigation on signedOut here, handle in logout() instead
+      if (user.value != null) {
+        await PushService().registerToken();
+      }
+
       if (event == AuthChangeEvent.signedIn) {
         if (user.value != null) {
+          await PushService().registerToken();
           Get.offAllNamed('/home');
         }
       }
@@ -71,7 +77,11 @@ class AuthController extends GetxController {
         Get.snackbar('로그인 실패', '다시 시도해주세요.');
       }
     } catch (err) {
-      print('로그인 오류: $err');
+      if (kDebugMode) {
+        if (kDebugMode) {
+          print('로그인 오류: $err');
+        }
+      }
       Get.snackbar('로그인 오류', err.toString());
     } finally {
       // Dismiss loading indicator
@@ -94,6 +104,10 @@ class AuthController extends GetxController {
   /// 닉네임(Full Name) 수정
   Future<void> updateNickname(String name) async {
     try {
+      await supabase.auth.updateUser(
+        UserAttributes(data: {'full_name': name}),
+      );
+
       // Refresh local user value from current session
       user.value = supabase.auth.currentSession?.user;
       // Upsert into custom users table
@@ -104,6 +118,9 @@ class AuthController extends GetxController {
           'email': currentUser.email,
           'display_name': name,
         });
+        user.value = supabase.auth.currentSession?.user;
+        user.refresh();
+
       }
       Get.snackbar('완료', '닉네임이 성공적으로 변경되었습니다.');
     } catch (e) {

@@ -7,6 +7,7 @@ class ParticipationModel {
   final String? proofUrl;
   final DateTime requestedAt;
   final DateTime? completedAt;
+  bool testerRegistered;
 
   ParticipationModel({
     required this.id,
@@ -16,6 +17,7 @@ class ParticipationModel {
     this.proofUrl,
     required this.requestedAt,
     this.completedAt,
+    this.testerRegistered = false
   });
 
   factory ParticipationModel.fromMap(Map<String, dynamic> m) =>
@@ -29,6 +31,7 @@ class ParticipationModel {
         completedAt: m['completed_at'] != null
             ? DateTime.parse(m['completed_at'] as String)
             : null,
+        testerRegistered: m['tester_registered'] as bool
       );
 
   Map<String, dynamic> toMap() => {

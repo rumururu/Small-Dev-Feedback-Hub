@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../data/models/request_model.dart';
 import '../pages/request_detail_page.dart';
-
+import 'package:get/get.dart';
 /// A card widget displaying a single RequestModel.
 /// On tap, navigates to the detail page.
 class RequestCard extends StatelessWidget {
   final RequestModel request;
+  final String? autoPairingRequestId;
 
   const RequestCard({
     super.key,
     required this.request,
+    this.autoPairingRequestId
   });
 
   @override
@@ -18,7 +20,7 @@ class RequestCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
       child: ListTile(
         title: Text(request.appName),
-        subtitle: Text(request.displayName),
+        subtitle: Text('${request.requestType} 요청, ${request.displayName} (${request.trustScore} 점)'),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -27,11 +29,9 @@ class RequestCard extends StatelessWidget {
           ],
         ),
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => RequestDetailPage(request: request),
-            ),
+          Get.to(
+                () => RequestDetailPage(request: request),
+            arguments: {'autoPairingRequestId': autoPairingRequestId},
           );
         },
       ),

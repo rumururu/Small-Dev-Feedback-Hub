@@ -1,17 +1,19 @@
 class RequestModel {
   final String id;
   final String targetAppId;
-  final String description;
+  String description;
   final String ownerId;
   final String displayName;
-  final String status;
+  String status;
   final String requestType;
   final int currentParticipants;
   final DateTime createdAt;
+  final DateTime updatedAt;
+  DateTime? testStartedAt;
   final String appName;
   final String packageName;
   final String appState;
-  final String? cafeUrl;
+  String? descUrl;
   final int trustScore;
 
   RequestModel({
@@ -24,20 +26,28 @@ class RequestModel {
     required this.requestType,
     required this.currentParticipants,
     required this.createdAt,
+    required this.updatedAt,
+    this.testStartedAt,
     required this.appName,
     required this.packageName,
     required this.appState,
-    required this.cafeUrl,
+    this.descUrl,
     required this.trustScore,
   });
 
-  Map<String, dynamic> toMap() => {
-    'target_app_id': targetAppId,
-    'description': description,
-    'owner_id': ownerId,
-    'status': status,
-    'request_type': requestType,
-    'current_participants': currentParticipants,
-    'created_at': createdAt.toIso8601String(),
-  };
+  Map<String, dynamic> toMap() {
+    final map = <String, dynamic>{
+      'target_app_id': targetAppId,
+      'description': description,
+      'owner_id': ownerId,
+      'status': status,
+      'request_type': requestType,
+      'current_participants': currentParticipants,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': createdAt.toIso8601String(),
+      // 선택 설명 URL
+      'desc_url': descUrl,
+    };
+    return map;
+  }
 }

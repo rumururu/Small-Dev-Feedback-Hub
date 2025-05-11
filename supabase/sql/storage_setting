@@ -27,3 +27,11 @@ auth.uid() = owner
 -- Target Role: authenticated
 -- Policy Definition
 auth.uid() = owner
+
+-- Policy 4: 업데이트 허용 (본인이 올린 파일만)
+-- Policy Name: Allow authenticated users to update images
+-- Action: UPDATE
+-- Target Role: authenticated
+-- Policy Definition
+auth.uid() = owner
+

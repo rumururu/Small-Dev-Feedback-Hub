@@ -12,58 +12,103 @@ CREATE TABLE users (
   display_name TEXT          NOT NULL,
   trust_score  INT           NOT NULL DEFAULT 0,
   platform     platform_type NOT NULL DEFAULT 'android',
+  fcm_tokens   TEXT[],
   created_at   TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
--- 2) user_apps 테이블
 CREATE TABLE user_apps (
   id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id      UUID          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   app_name      TEXT          NOT NULL,
   package_name  TEXT          NOT NULL,
   app_state     app_state     NOT NULL,
-  cafe_url      TEXT,
+  icon_url      TEXT,
   created_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
+  -- Prevent deletion if related requests or participations exist
+  -- (enforced by ON DELETE RESTRICT on referencing tables below)
 );
 
--- 3) requests 테이블
 CREATE TABLE requests (
   id                   UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
-  target_app_id        UUID            NOT NULL REFERENCES user_apps(id) ON DELETE CASCADE,
+  target_app_id        UUID            NOT NULL REFERENCES user_apps(id) ON DELETE RESTRICT,
   description          TEXT,
-  owner_id             UUID            NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  desc_url             TEXT,
+  owner_id             UUID            NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   status               request_status  NOT NULL DEFAULT 'open',
   request_type         request_type    NOT NULL DEFAULT 'test',
   current_participants INT             NOT NULL DEFAULT 0,
-  created_at           TIMESTAMPTZ     NOT NULL DEFAULT now()
+  created_at           TIMESTAMPTZ     NOT NULL DEFAULT now(),
+  test_started_at      TIMESTAMPTZ,
+  updated_at           TIMESTAMPTZ     DEFAULT now()
 );
 
--- 4) participations 테이블 (새 구조)
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ language plpgsql;
+
+CREATE TRIGGER trg_update_updated_at
+BEFORE UPDATE ON requests
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+ALTER TABLE requests
+ADD CONSTRAINT unique_request_per_app_type UNIQUE (target_app_id, request_type);
+
 CREATE TABLE participations (
   id                 UUID                  PRIMARY KEY DEFAULT gen_random_uuid(),
-  request_id         UUID                  NOT NULL REFERENCES requests(id) ON DELETE CASCADE, -- 내가 참여하는 요청
+  request_id         UUID                  NOT NULL REFERENCES requests(id) ON DELETE RESTRICT, -- 내가 참여하는 요청
   user_id            UUID                  NOT NULL REFERENCES users(id) ON DELETE CASCADE,     -- 참여자
-  target_request_id  UUID                  REFERENCES requests(id) ON DELETE CASCADE, -- 도움받고 싶은 요청 (nullable)
+  target_request_id  UUID                  REFERENCES requests(id) ON DELETE RESTRICT, -- 도움받고 싶은 요청 (nullable)
   status             participation_status  NOT NULL DEFAULT 'pending',
   proof_url          TEXT,
   requested_at       TIMESTAMPTZ           NOT NULL DEFAULT now(),
-  completed_at       TIMESTAMPTZ
+  completed_at       TIMESTAMPTZ,
+  is_pairing         BOOLEAN              NOT NULL DEFAULT FALSE,
+  tester_registered  BOOLEAN              NOT NULL DEFAULT FALSE,
+  requester_failed   BOOLEAN              NOT NULL DEFAULT FALSE,
+  last_install_check TIMESTAMPTZ,
+  created_at         TIMESTAMPTZ          NOT NULL DEFAULT now()
 );
 
 -- 한 사용자가 동일 요청에 중복 참여하지 못하도록 UNIQUE 제약 추가
 ALTER TABLE participations
-ADD CONSTRAINT unique_request_per_user UNIQUE (request_id, user_id);
+ADD CONSTRAINT unique_request_per_user UNIQUE (request_id, user_id, target_request_id);
 
 -- 5) notifications 테이블
-CREATE TABLE notifications (
-  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  type        TEXT        NOT NULL,
-  message     TEXT        NOT NULL,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+create table notifications (
+  id            uuid          primary key default gen_random_uuid(),
+  user_id       uuid          not null references users(id),
+  title         text          not null,
+  body          text          not null,
+  action        text          not null,
+  payload       JSONB         not null DEFAULT '{}'::jsonb,
+  scheduled_for timestamptz   not null,
+  sent          boolean       not null default false,
+  read          boolean       not null default false,
+  created_at    timestamptz   not null default now()
 );
 
+-- RLS 활성화
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+-- 로그인한 사용자 자신의 알림만 조회할 수 있도록 허용
+CREATE POLICY notifications_select_own
+  ON notifications
+  FOR SELECT
+  USING (user_id = auth.uid());
+
+-- 내 서비스 키나 내부 함수에서 user_id를 마음대로 지정해 INSERT 할 수 있게 하려면
+CREATE POLICY notifications_insert_any
+  ON notifications
+  FOR INSERT
+  WITH CHECK ( true );
+
 -- 6) reports 테이블
+
 CREATE TABLE reports (
   id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   participation_id UUID        NOT NULL REFERENCES participations(id) ON DELETE CASCADE,
@@ -73,6 +118,25 @@ CREATE TABLE reports (
   resolved         BOOLEAN     NOT NULL DEFAULT FALSE,
   resolved_at      TIMESTAMPTZ
 );
+
+-- 7) 신뢰점수 변경 로그 저장 테이블
+CREATE TABLE trust_score_logs (
+  id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id           UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  participation_id  UUID        REFERENCES participations(id) ON DELETE CASCADE,
+  delta             INT         NOT NULL,
+  reason            TEXT        NOT NULL,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 8) 리뷰 내용 저장 테이블 (1주일 보존용)
+CREATE TABLE review_contents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  participation_id UUID REFERENCES participations(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
 
 -- 7) RLS 활성화
 ALTER TABLE users            ENABLE ROW LEVEL SECURITY;
@@ -91,6 +155,8 @@ CREATE POLICY users_select_all ON users
   FOR SELECT USING ( true );
 CREATE POLICY users_update_own ON users
   FOR UPDATE USING ( auth.uid() = id );
+CREATE POLICY users_update_by_service_role ON users
+  FOR UPDATE USING (current_user = 'service_role');
 CREATE POLICY users_insert_own ON users
   FOR INSERT WITH CHECK ( auth.uid() = id );
 
@@ -148,6 +214,10 @@ CREATE POLICY parts_delete_only_if_request_open ON participations
 CREATE POLICY noti_select ON notifications
   FOR SELECT USING ( user_id = auth.uid() );
 
+CREATE POLICY notifications_insert_own ON notifications
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
 -- reports
 CREATE POLICY reports_insert ON reports
   FOR INSERT WITH CHECK ( reporter_id = auth.uid() );
@@ -155,73 +225,3 @@ CREATE POLICY reports_select ON reports
   FOR SELECT USING ( reporter_id = auth.uid() );
 CREATE POLICY reports_update ON reports
   FOR UPDATE USING ( FALSE );
-
--- 9) 트리거 및 함수
-CREATE FUNCTION inc_request_count() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  UPDATE requests
-    SET current_participants = current_participants + 1,
-        status = CASE
-          WHEN request_type = 'test' AND current_participants + 1 >= 12 THEN 'test'
-          WHEN current_participants + 1 >= 12 THEN 'closed'
-          ELSE status
-        END
-    WHERE id = NEW.request_id;
-  RETURN NEW;
-END; $$;
-
-CREATE TRIGGER trg_inc_count
-  AFTER INSERT ON participations
-  FOR EACH ROW EXECUTE FUNCTION inc_request_count();
-
--- 9.2 참여자 삭제 시 참가자 수 감소
-CREATE FUNCTION dec_request_count() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  UPDATE requests
-    SET current_participants = current_participants - 1
-    WHERE id = OLD.request_id;
-  RETURN OLD;
-END; $$;
-
-CREATE TRIGGER trg_dec_count
-  AFTER DELETE ON participations
-  FOR EACH ROW EXECUTE FUNCTION dec_request_count();
-
-CREATE FUNCTION adjust_trust_and_notify() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE
-  owner UUID;
-  trust_increase INT;
-BEGIN
-  SELECT owner_id INTO owner FROM requests WHERE id = NEW.request_id;
-
-  IF (OLD.status <> 'completed' AND NEW.status = 'completed') THEN
-    -- 보상 계산: target_request_id가 없으면 2배
-    IF NEW.target_request_id IS NULL THEN
-      trust_increase := 2;
-    ELSE
-      trust_increase := 1;
-    END IF;
-
-    UPDATE users SET trust_score = trust_score + trust_increase WHERE id = NEW.user_id;
-    UPDATE users SET trust_score = trust_score + trust_increase WHERE id = owner;
-
-    INSERT INTO notifications(user_id, type, message)
-      VALUES (owner, 'participation_completed', '참여자가 완료했습니다.');
-  END IF;
-
-  IF (OLD.status <> 'failed' AND NEW.status = 'failed') THEN
-    UPDATE users SET trust_score = trust_score - 1 WHERE id = NEW.user_id;
-  END IF;
-
-  RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_adjust_trust
-  AFTER UPDATE ON participations
-  FOR EACH ROW EXECUTE FUNCTION adjust_trust_and_notify();
-
-
-CREATE POLICY notifications_insert_own ON notifications
-  FOR INSERT
-  WITH CHECK (auth.uid() = user_id);

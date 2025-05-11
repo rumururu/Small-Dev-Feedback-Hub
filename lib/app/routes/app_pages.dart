@@ -1,6 +1,7 @@
 // lib/app/routes/app_pages.dart
 
 import 'package:get/get.dart';
+import 'package:upgrader/upgrader.dart';
 import '../middleware/auth_guard.dart';
 import '../ui/pages/request_detail_page.dart';
 import '../data/models/request_model.dart';
@@ -13,6 +14,17 @@ import '../ui/pages/review_list_page.dart';
 import '../ui/pages/profile_page.dart';
 
 class AppPages {
+  static const androidAppcastURL = 'https://mkideabox.com/updates/android/appcast.xml';
+  //static const iosAppcastURL = 'https://mkideabox.com/updates/ios/appcast.xml';
+  static final upgrader = Upgrader(
+    storeController: UpgraderStoreController(
+      //onAndroid: () => UpgraderPlayStore(),
+      onAndroid: () => UpgraderAppcastStore(appcastURL: androidAppcastURL),
+      //oniOS: () => UpgraderAppcastStore(appcastURL: iosAppcastURL),
+    ),
+  );
+
+
   static final pages = [
     GetPage(
       name: AppRoutes.LOGIN,
@@ -21,7 +33,7 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.HOME,
-      page: () => const HomePage(),
+      page: () => UpgradeAlert(upgrader: upgrader, child: HomePage()),
       middlewares: [AuthGuard()],
     ),
     GetPage(
@@ -50,6 +62,7 @@ class AppPages {
     GetPage(
       name: AppRoutes.testApps,
       page: () => const TestAppListPage(),
+      middlewares: [AuthGuard()],
     ),
   ];
 }
