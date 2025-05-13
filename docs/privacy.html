@@ -2,11 +2,18 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>개인정보 처리방침</title>
   <style>
     /* 본문을 좀 더 크게 보이도록 */
-    body { font-size: 1.1rem; line-height: 1.6; margin: 0 1rem; }
-    /* 조 제목은 살짝 작게, 본문(p, ul 등)은 상대적으로 조금 더 크게 */
+    body {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      margin: 0 1rem;
+      /* iOS 웹뷰 텍스트 자동 확대 방지 */
+      -webkit-text-size-adjust: 100%;
+    }
     h1 { font-size: 1.5rem; }
     h2 { font-size: 1.25rem; margin-top: 1.5em; }
     p, ul, li { font-size: 1rem; }
