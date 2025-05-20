@@ -16,4 +16,4 @@
 ---
 
 **개발자:** mkideabox  
-**앱 이름:** Android Test and Review Exchange
+**앱 이름:** 스몰뎁피드백허브
