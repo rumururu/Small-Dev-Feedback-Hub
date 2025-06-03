@@ -10,5 +10,16 @@
             <enclosure url="https://play.google.com/store/apps/details?id=com.mkideabox.devfeedbackhub"
                 sparkle:version="0.0.1+1" sparkle:os="android" />
         </item>
+        <item>
+            <title>Version 1.0.3+13</title>
+            <description>
+                1. 앱 UI 개선 및 튜토리얼 추가<br/>
+                2. 다크모드 관련 테마 정비<br/>
+                3. 다국어 지원 추가
+            </description>
+            <pubDate>Tue, 03 Jun 2025 00:00:00 +0900</pubDate>
+            <enclosure url="https://play.google.com/store/apps/details?id=com.mkideabox.devfeedbackhub"
+                sparkle:version="1.0.3+13" sparkle:os="android" />
+        </item>
     </channel>
 </rss>
