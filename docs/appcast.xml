@@ -11,7 +11,7 @@
                 sparkle:version="0.0.1+1" sparkle:os="android" />
         </item>
         <item>
-            <title>Version 1.0.3+13</title>
+            <title>Version 1.0.3+14</title>
             <description>
                 1. 앱 UI 개선 및 튜토리얼 추가<br/>
                 2. 다크모드 관련 테마 정비<br/>
@@ -19,7 +19,18 @@
             </description>
             <pubDate>Tue, 03 Jun 2025 00:00:00 +0900</pubDate>
             <enclosure url="https://play.google.com/store/apps/details?id=com.mkideabox.devfeedbackhub"
-                sparkle:version="1.0.3+13" sparkle:os="android" />
+                sparkle:version="1.0.3+14" sparkle:os="android" />
+        </item>
+        <item>
+            <title>Version 1.0.4+16</title>
+            <description>
+                1. 테스트 참여 앱 직접관리기능 추가<br/>
+                2. 마이너 오류 개선<br/>
+                   - 로그인 세션 유지기능 보완 등
+            </description>
+            <pubDate>Tue, 03 Jun 2025 00:00:00 +0900</pubDate>
+            <enclosure url="https://play.google.com/store/apps/details?id=com.mkideabox.devfeedbackhub"
+                sparkle:version="1.0.4+16" sparkle:os="android" />
         </item>
     </channel>
 </rss>
