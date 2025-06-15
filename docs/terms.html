@@ -4,12 +4,19 @@
   <meta charset="UTF-8">
   <title>이용약관</title>
   <style>
+    /* 본문을 좀 더 크게 보이도록 */
     body { font-size: 1.1rem; line-height: 1.6; margin: 0 1rem; }
+    /* 조 제목은 살짝 작게, 본문(p, ul 등)은 상대적으로 조금 더 크게 */
     h1 { font-size: 1.5rem; }
     h2 { font-size: 1.25rem; margin-top: 1.5em; }
     p, ul, li { font-size: 1rem; }
     ul { padding-left: 1.2rem; }
     li { margin-bottom: 0.5em; }
+
+    @media (prefers-color-scheme: dark) {
+      body { background: #181818; color: #eee; }
+      a { color: #85b7ff; }
+    }
   </style>
 </head>
 <body>
