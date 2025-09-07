@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Account Deletion Request</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 40px auto; padding: 20px; }
+    h1 { text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>Account Deletion Request</h1>
+
+  <p><strong>mkideabox, Co. Ltd (엠케이아이디어박스 주식회사)</strong> provides a simple way to request deletion of your account and associated data.</p>
+
+  <h2>Steps to Request Deletion</h2>
+  <p>
+    - Please contact us at <a href="mailto:support@mkideabox.com">support@mkideabox.com</a> with the subject "Account Deletion Request".<br>
+    - We will process your request and confirm once completed.
+  </p>
+
+  <h2>Data Deleted</h2>
+  <p>
+    - Google account link used for login<br>
+    - Any personal information associated with your account
+  </p>
+
+  <h2>Data Retained</h2>
+  <p>
+    - This app does not store user data on its own servers.<br>
+    - Advertising data collected by Google AdMob is managed by Google and not by us.<br>
+    - We do not retain any of your account data after deletion.
+  </p>
+
+  <p><em>For any questions, please contact: support@mkideabox.com</em></p>
+</body>
+</html>
